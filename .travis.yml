@@ -1,0 +1,30 @@
+language: go
+
+go:
+  - 1.8
+
+branches:
+  only:
+    - master
+
+# http://docs.travis-ci.com/user/languages/go/#Dependency-Management
+install:
+   - go get github.com/stretchr/testify
+   - go get golang.org/x/tools/cmd/cover
+   - go get github.com/axw/gocov/gocov
+   - go get github.com/modocache/gover
+   - go get github.com/mattn/goveralls
+
+before_install:
+ - go get github.com/mattn/goveralls
+
+script:
+  - go test -coverprofile=main.coverprofile
+  - $HOME/gopath/bin/gover
+  - $HOME/gopath/bin/goveralls -coverprofile=gover.coverprofile -service travis-ci
+
+before_install:
+ - go get github.com/mattn/goveralls
+
+after_success:
+  - coveralls
