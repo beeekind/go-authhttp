@@ -83,8 +83,5 @@ func TestWithBasicAuth(t *testing.T) {
 
 		require.Equal(t, 401, resp.StatusCode)
 	})
-
-	time.Sleep(time.Second * 2)
 }
-
 ```
