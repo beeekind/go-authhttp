@@ -7,20 +7,36 @@ import (
 	"time"
 )
 
-// CustomRoundTripper provides custom configuration of *http.Client(s) for specific providers. Because each provider may require
-// various amounts of extensibility this is abstracted at the provider level.
-type CustomRoundTripper struct {
-	http.Transport
-	Username string
-	Password string
+type roundTripFunc func(*http.Request)(*http.Response, error)
+
+func (fn roundTripFunc) RoundTrip(req *http.Request)(*http.Response, error){
+	return fn(req)
 }
 
-func (rt *CustomRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	req.SetBasicAuth(rt.Username, rt.Password)
-	return rt.Transport.RoundTrip(req)
+// transportOption represents a transport-level option for an http.RoundTripper.
+type TransportOption func(http.RoundTripper) http.RoundTripper
+
+
+func WithBasicAuth(clientID, secret string) TransportOption {
+	return func(rt http.RoundTripper) http.RoundTripper {
+		return roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			req.SetBasicAuth(clientID, secret)
+			return rt.RoundTrip(req)
+		})
+	}
 }
 
-func getHTTPTransport() *http.Transport {
+func WithHeader(key, value string) TransportOption {
+	return func(rt http.RoundTripper) http.RoundTripper {
+		return roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			req.Header.Set(key, value)
+			return rt.RoundTrip(req)
+		})
+	}
+}
+
+// newBaseRoundTripper provides sane defaults for an http.RoundTripper.
+func newBaseRoundTripper() http.RoundTripper {
 	return &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		DialContext: (&net.Dialer{
@@ -35,13 +51,12 @@ func getHTTPTransport() *http.Transport {
 	}
 }
 
-func WithBasicAuth(username string, password string) *http.Client {
-	//transport := cleanhttp.DefaultPooledTransport()
-	return &http.Client {
-		Transport: &CustomRoundTripper{
-			Transport: *getHTTPTransport(),
-			Username: username,
-			Password: password,
-		},
+// newHTTPClient constructs a new HTTP client with the specified transport-level options.
+func NewHTTPClient(opts ...TransportOption) *http.Client {
+	rt := newBaseRoundTripper()
+	for _, opt := range opts {
+		rt = opt(rt)
 	}
+	return &http.Client{Transport: rt}
 }
+
